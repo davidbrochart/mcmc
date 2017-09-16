@@ -7,4 +7,4 @@ sampler = mcmc.sampler(q0, lnprob)
 samples = sampler.sample(1000)
 ```
 
-![Alt text](mcmc/examples/triangle.png?raw=true)
+![Alt text](https://raw.githubusercontent.com/davidbrochart/mcmc/master/examples/triangle.png)
