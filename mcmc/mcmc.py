@@ -38,8 +38,9 @@ class walker:
             return True
         return False
 
-class sampler:
-    def __init__(self, q0, lnprob, args=None, scale=None, tune_interval=None):
+class Sampler:
+    def __init__(self, q0, lnprob, args=None, scale=None, tune_interval=None, progress_bar=True):
+        self.progress_bar = progress_bar
         self.lnprob = lnprob
         self.args = args
         self.walkers = []
@@ -50,14 +51,14 @@ class sampler:
             tune_interval = [100 for i in self.q]
         for i, _ in enumerate(self.q):
             self.walkers.append(walker(scale[i], tune_interval[i]))
-    def sample(self, nsamples):
-        samples = np.empty((self.q.size, nsamples), dtype=np.float64)
+    def run(self, nsamples):
+        samples = np.empty((nsamples, self.q.size), dtype=np.float64)
         if self.args is None:
             lnp0 = self.lnprob(self.q)
         else:
             lnp0 = self.lnprob(self.q, *self.args)
         iter_samples = range(nsamples)
-        if tqdm is not None:
+        if tqdm is not None and self.progress_bar:
             iter_samples = tqdm(iter_samples)
         for j in iter_samples:
             for i, walker in enumerate(self.walkers):
@@ -71,5 +72,5 @@ class sampler:
                     lnp0 = lnp
                 else:
                     self.q[i] = q0
-            samples[:, j] = self.q
+            samples[j, :] = self.q
         return samples
