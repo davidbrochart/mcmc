@@ -1,3 +1,5 @@
+import sys
+sys.path.append('../mcmc')
 import mcmc
 import numpy as np
 import scipy.optimize as op
@@ -41,8 +43,8 @@ def lnprob(theta, x, y, yerr):
 ndim = 3
 pos = result["x"] + 1e-4*np.random.randn(ndim)
 
-sampler = mcmc.sampler(pos, lnprob, args=(x, y, yerr))
-samples = sampler.sample(100000)
+sampler = mcmc.Sampler(pos, lnprob, args=(x, y, yerr))
+samples = sampler.run(100000)
 
-fig = corner.corner(samples.transpose(), labels=["$m$", "$b$", "$\ln\,f$"], truths=[m_true, b_true, np.log(f_true)])
+fig = corner.corner(samples, labels=["$m$", "$b$", "$\ln\,f$"], truths=[m_true, b_true, np.log(f_true)])
 fig.savefig("triangle.png")
