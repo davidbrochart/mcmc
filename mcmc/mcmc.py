@@ -45,6 +45,17 @@ class Sampler:
         self.args = args
         self.walkers = []
         self.q = np.array(q0, dtype=np.float64)
+        self.lnp0 = 0
+        self.has_blobs = False
+        if self.args is None:
+            self.lnp0 = self.lnprob(self.q)
+        else:
+            self.lnp0 = self.lnprob(self.q, *self.args)
+        try:
+            self.lnp0, blob = self.lnp0
+            self.has_blobs = True
+        except TypeError:
+            pass
         if scale is None:
             scale = [1 for i in self.q]
         if tune_interval is None:
@@ -53,24 +64,36 @@ class Sampler:
             self.walkers.append(walker(scale[i], tune_interval[i]))
     def run(self, nsamples):
         samples = np.empty((nsamples, self.q.size), dtype=np.float64)
-        if self.args is None:
-            lnp0 = self.lnprob(self.q)
+        blobs = []
+        if tqdm is None or not self.progress_bar:
+            iter_samples = range(nsamples)
         else:
-            lnp0 = self.lnprob(self.q, *self.args)
-        iter_samples = range(nsamples)
-        if tqdm is not None and self.progress_bar:
-            iter_samples = tqdm(iter_samples)
-        for j in iter_samples:
-            for i, walker in enumerate(self.walkers):
-                q0 = self.q[i]
-                self.q[i] = walker.step(q0)
-                if self.args is None:
-                    lnp = self.lnprob(self.q)
-                else:
-                    lnp = self.lnprob(self.q, *self.args)
-                if walker.accept(lnp0, lnp):
-                    lnp0 = lnp
-                else:
-                    self.q[i] = q0
-            samples[j, :] = self.q
-        return samples
+            iter_samples = tqdm(range(nsamples))
+        for i in iter_samples:
+            if self.has_blobs:
+                samples[i, :], blob = self.sample()
+                blobs.append(blob)
+            else:
+                samples[i, :] = self.sample()
+        if self.has_blobs:
+            return samples, blobs
+        else:
+            return samples
+    def sample(self):
+        for i, walker in enumerate(self.walkers):
+            q0 = self.q[i]
+            self.q[i] = walker.step(q0)
+            if self.args is None:
+                lnp = self.lnprob(self.q)
+            else:
+                lnp = self.lnprob(self.q, *self.args)
+            if self.has_blobs:
+                lnp, blob = lnp
+            if walker.accept(self.lnp0, lnp):
+                self.lnp0 = lnp
+            else:
+                self.q[i] = q0
+        if self.has_blobs:
+            return self.q, blob
+        else:
+            return self.q
