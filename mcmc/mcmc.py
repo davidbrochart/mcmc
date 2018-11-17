@@ -62,19 +62,22 @@ class Sampler:
             tune_interval = [100 for i in self.q]
         for i, _ in enumerate(self.q):
             self.walkers.append(walker(scale[i], tune_interval[i]))
-    def run(self, nsamples):
+    def run(self, nsamples, burnin=0):
         samples = np.empty((nsamples, self.q.size), dtype=np.float64)
         blobs = []
         if tqdm is None or not self.progress_bar:
-            iter_samples = range(nsamples)
+            iter_samples = range(nsamples + burnin)
         else:
-            iter_samples = tqdm(range(nsamples))
+            iter_samples = tqdm(range(nsamples + burnin))
         for i in iter_samples:
-            if self.has_blobs:
-                samples[i, :], blob = self.sample()
-                blobs.append(blob)
+            if i < burnin:
+                self.sample()
             else:
-                samples[i, :] = self.sample()
+                if self.has_blobs:
+                    samples[i-burnin, :], blob = self.sample()
+                    blobs.append(blob)
+                else:
+                    samples[i-burnin, :] = self.sample()
         if self.has_blobs:
             return samples, blobs
         else:
