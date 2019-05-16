@@ -39,18 +39,14 @@ class walker:
         return False
 
 class Sampler:
-    def __init__(self, q0, lnprob, args=None, scale=None, tune_interval=None, progress_bar=True):
+    def __init__(self, q0, lnprob, args=(), scale=None, tune_interval=None, progress_bar=True):
         self.progress_bar = progress_bar
         self.lnprob = lnprob
         self.args = args
         self.walkers = []
         self.q = np.array(q0, dtype=np.float64)
-        self.lnp0 = 0
         self.has_blobs = False
-        if self.args is None:
-            self.lnp0 = self.lnprob(self.q)
-        else:
-            self.lnp0 = self.lnprob(self.q, *self.args)
+        self.lnp0 = self.lnprob(self.q, *self.args)
         try:
             self.lnp0, blob = self.lnp0
             self.has_blobs = True
@@ -60,7 +56,7 @@ class Sampler:
             scale = [1 for i in self.q]
         if tune_interval is None:
             tune_interval = [100 for i in self.q]
-        for i, _ in enumerate(self.q):
+        for i in range(len(self.q)):
             self.walkers.append(walker(scale[i], tune_interval[i]))
     def run(self, nsamples, burnin=0):
         samples = np.empty((nsamples, self.q.size), dtype=np.float64)
@@ -86,10 +82,7 @@ class Sampler:
         for i, walker in enumerate(self.walkers):
             q0 = self.q[i]
             self.q[i] = walker.step(q0)
-            if self.args is None:
-                lnp = self.lnprob(self.q)
-            else:
-                lnp = self.lnprob(self.q, *self.args)
+            lnp = self.lnprob(self.q, *self.args)
             if self.has_blobs:
                 lnp, blob = lnp
             if walker.accept(self.lnp0, lnp):
