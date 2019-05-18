@@ -30,14 +30,11 @@ def two_gaussians(x):
     logp = np.log(w1 * np.exp(log_like1) + w2 * np.exp(log_like2))
     return logp
 
-def get_prior_logp(x):
-    def prior_logp(v):
-        logp = sum([dist.logp_from_pdf(pdf, v[i]) for i, pdf in enumerate(x)])
-        return logp
-    return prior_logp
+def prior_logp(v):
+    logp = sum([dist.logp_from_pdf(pdf, v[i]) for i, pdf in enumerate(x)])
+    return logp
 
 x = [dist.uniform_pdf(-2, 2)] * n
-prior_logp = get_prior_logp(x)
 posterior = smc.smc(x, two_gaussians, prior_logp, cores=4)
 
 plt.figure()

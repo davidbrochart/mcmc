@@ -58,7 +58,7 @@ def smc(prior_pdf, likelihood_logp, prior_logp, draws=5000, step=None, cores=1, 
         proposed = draws * step.n_steps
         priors = np.array([prior_logp(sample) for sample in posterior])
         tempered_logp = priors + likelihoods * beta
-        deltas = np.squeeze(proposal(step.n_steps) * step.scaling)
+        deltas = proposal(step.n_steps) * step.scaling
     
         parameters = (
             proposal,
@@ -132,7 +132,7 @@ def _metrop_kernel(
     """
     Metropolis kernel
     """
-    deltas = np.squeeze(proposal(n_steps) * scaling)
+    deltas = proposal(n_steps) * scaling
     for n_step in range(n_steps):
         delta = deltas[n_step]
 

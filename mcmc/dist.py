@@ -1,6 +1,6 @@
 import numpy as np
 
-def draw_samples(population, sample_nb=1):
+def sample_from_population(population, nb=1):
     '''
     Draw samples from a population.
 
@@ -9,8 +9,8 @@ def draw_samples(population, sample_nb=1):
     population: numpy array
         Population to sample from.
 
-    sample_nb: int
-        Number of samples.
+    nb: int
+        Number of samples to draw.
 
     Returns
     -------
@@ -18,10 +18,10 @@ def draw_samples(population, sample_nb=1):
         The samples.
     '''
 
-    samples = np.random.choice(population, sample_nb)
+    samples = np.random.choice(population, nb)
     return samples
 
-def sample_from_cdf(cdf, sample_nb=1):
+def sample_from_cdf(cdf, nb=1):
     '''
     Draw samples from a Cumulative Distribution Function (CDF).
 
@@ -29,8 +29,8 @@ def sample_from_cdf(cdf, sample_nb=1):
     ----------
     cdf: numpy array
         CDF to sample from.
-    sample_nb: int
-        Number of samples.
+    nb: int
+        Number of samples to draw.
 
     Returns
     -------
@@ -39,7 +39,7 @@ def sample_from_cdf(cdf, sample_nb=1):
     '''
 
     x, y = cdf
-    ys = np.random.random_sample((sample_nb,))
+    ys = np.random.random_sample((nb,))
     samples = np.interp(ys, y, x)
     return samples
 
