@@ -38,7 +38,7 @@ def get_prior_logp(x):
 
 x = [dist.uniform_pdf(-2, 2)] * n
 prior_logp = get_prior_logp(x)
-posterior = smc.smc(x, two_gaussians, prior_logp)
+posterior = smc.smc(x, two_gaussians, prior_logp, cores=4)
 
 plt.figure()
 for i in range(n):

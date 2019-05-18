@@ -2,8 +2,9 @@ from dist import cdf_from_pdf, sample_from_cdf
 import numpy as np
 import scipy.linalg
 from tqdm import tqdm
+import multiprocessing as mp
 
-def smc(prior_pdf, likelihood_logp, prior_logp, draws=5000, step=None):
+def smc(prior_pdf, likelihood_logp, prior_logp, draws=5000, step=None, cores=1, dask_client=None):
     """
     Sequential Monte Carlo sampling
 
@@ -69,10 +70,23 @@ def smc(prior_pdf, likelihood_logp, prior_logp, draws=5000, step=None):
             beta,
         )
         
-        results = [
-            _metrop_kernel(posterior[draw], tempered_logp[draw], *parameters)
-            for draw in tqdm(range(draws))
-        ]
+        if dask_client:
+            dask_posterior = dask_client.scatter(list(posterior), broadcast=True)
+            dask_tempered_logp = dask_client.scatter(list(tempered_logp), broadcast=True)
+            dask_parameters = dask_client.scatter(parameters, broadcast=True)
+            futures = dask_client.map(_metrop_kernel, dask_posterior, dask_tempered_logp, *[[param] * draws for param in dask_parameters], pure=False)
+            results = dask_client.gather(futures)
+        elif cores > 1:
+            pool = mp.Pool(processes=cores)
+            results = pool.starmap(
+                _metrop_kernel,
+                [(posterior[draw], tempered_logp[draw], *parameters) for draw in range(draws)],
+            )
+        else:
+            results = [
+                _metrop_kernel(posterior[draw], tempered_logp[draw], *parameters)
+                for draw in tqdm(range(draws))
+            ]
     
         posterior, acc_list = zip(*results)
         posterior = np.array(posterior)
@@ -308,8 +322,6 @@ class SMC:
         tune_scaling=True,
         tune_steps=True,
         threshold=0.5,
-        parallel=True,
-        dask_client=None,
     ):
 
         self.n_steps = n_steps
@@ -319,5 +331,3 @@ class SMC:
         self.tune_scaling = tune_scaling
         self.tune_steps = tune_steps
         self.threshold = threshold
-        self.parallel = parallel
-        self.dask_client = dask_client
