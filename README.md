@@ -20,3 +20,9 @@ import smc
 # log-probability
 samples = smc(x, likelihood_logp, prior_logp)
 ```
+
+# Install
+
+`pip install git+https://github.com/davidbrochart/mcmc`
+
+or clone this repository and `pip install -e mcmc`.
