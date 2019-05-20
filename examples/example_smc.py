@@ -4,6 +4,7 @@ import smc
 import dist
 import numpy as np
 import matplotlib.pyplot as plt
+import time
 
 chains = 500
 
@@ -28,14 +29,18 @@ def two_gaussians(x):
                 - 0.5 * np.log(dsigma) \
                 - 0.5 * (x - mu2).T.dot(isigma).dot(x - mu2)
     logp = np.log(w1 * np.exp(log_like1) + w2 * np.exp(log_like2))
+    time.sleep(0.001) # artificially slow the model down
     return logp
 
-def prior_logp(v):
-    logp = sum([dist.logp_from_pdf(pdf, v[i]) for i, pdf in enumerate(x)])
+x_pdf = [dist.uniform_pdf(-2, 2)] * n
+def prior_logp(values):
+    logp = sum([dist.logp_from_pdf(pdf, v) for pdf, v in zip(x_pdf, values)])
     return logp
 
-x = [dist.uniform_pdf(-2, 2)] * n
-posterior = smc.smc(x, two_gaussians, prior_logp, cores=4)
+t0 = time.time()
+posterior = smc.smc(x_pdf, two_gaussians, prior_logp, cores=4)
+t1 = time.time()
+print(f'Took {t1-t0} seconds')
 
 plt.figure()
 for i in range(n):
