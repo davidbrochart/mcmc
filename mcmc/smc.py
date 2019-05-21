@@ -1,4 +1,4 @@
-from dist import cdf_from_pdf, sample_from_cdf
+from .dist import cdf_from_pdf, sample_from_cdf
 import numpy as np
 import scipy.linalg
 from tqdm import tqdm
@@ -21,6 +21,10 @@ def smc(prior_pdf, likelihood_logp, prior_logp, draws=5000, step=None, cores=1, 
         also the number of independent Markov Chains. Defaults to 5000.
     step : :class:`SMC`
         SMC initialization object
+    cores : int
+        Number of CPU cores to use. Multiprocessing is used when cores > 1.
+    dask_client : dask.distributed.Client
+        Dask distribute client to use for running e.g. on a cluster.
     """
 
     if step is None:
@@ -33,10 +37,18 @@ def smc(prior_pdf, likelihood_logp, prior_logp, draws=5000, step=None, cores=1, 
     marginal_likelihood = 1
     prior_cdf = [cdf_from_pdf(pdf) for pdf in prior_pdf]
     posterior = np.array(list(zip(*[sample_from_cdf(cdf, draws) for cdf in prior_cdf])))
+    try:
+        logp, blob = likelihood_logp(posterior[0])
+        has_blobs = True
+    except TypeError:
+        has_blobs = False
     
     while beta < 1:
         # compute plausibility weights (measure fitness)
-        likelihoods = np.array([likelihood_logp(sample) for sample in posterior])
+        if has_blobs:
+            likelihoods = np.array([likelihood_logp(sample)[0] for sample in posterior])
+        else:
+            likelihoods = np.array([likelihood_logp(sample) for sample in posterior])
         beta, old_beta, weights, sj = _calc_beta(beta, likelihoods, step.threshold)
         marginal_likelihood *= sj
         # resample based on plausibility weights (selection)
@@ -68,6 +80,7 @@ def smc(prior_pdf, likelihood_logp, prior_logp, draws=5000, step=None, cores=1, 
             prior_logp,
             likelihood_logp,
             beta,
+            has_blobs,
         )
         
         if dask_client:
@@ -88,12 +101,18 @@ def smc(prior_pdf, likelihood_logp, prior_logp, draws=5000, step=None, cores=1, 
                 for draw in tqdm(range(draws))
             ]
     
-        posterior, acc_list = zip(*results)
+        if beta == 1 and has_blobs:
+            posterior, acc_list, blobs = zip(*results)
+        else:
+            posterior, acc_list = zip(*results)
         posterior = np.array(posterior)
         acc_rate = sum(acc_list) / proposed
         stage += 1
 
-    return posterior
+    if has_blobs:
+        return posterior, blobs
+    else:
+        return posterior
 
 def metrop_select(mr, q, q0):
     """Perform rejection/acceptance step for Metropolis class samplers.
@@ -128,6 +147,7 @@ def _metrop_kernel(
     prior_logp,
     likelihood_logp,
     beta,
+    has_blobs,
 ):
     """
     Metropolis kernel
@@ -138,14 +158,21 @@ def _metrop_kernel(
 
         q_new = q_old + delta
 
-        new_tempered_logp = prior_logp(q_new) + likelihood_logp(q_new) * beta
+        if has_blobs:
+            l_logp, blob = likelihood_logp(q_new)
+        else:
+            l_logp = likelihood_logp(q_new)
+        new_tempered_logp = prior_logp(q_new) + l_logp * beta
 
         q_old, accept = metrop_select(new_tempered_logp - old_tempered_logp, q_new, q_old)
         if accept:
             accepted += 1
             old_tempered_logp = new_tempered_logp
 
-    return q_old, accepted
+    if beta == 1 and has_blobs:
+        return q_old, accepted, blob
+    else:
+        return q_old, accepted
 
 def _calc_beta(beta, likelihoods, threshold=0.5):
     """
