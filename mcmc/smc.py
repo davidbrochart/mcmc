@@ -153,13 +153,14 @@ def _metrop_kernel(
     Metropolis kernel
     """
     deltas = proposal(n_steps) * scaling
+    new_blob = False
     for n_step in range(n_steps):
         delta = deltas[n_step]
 
         q_new = q_old + delta
 
         if has_blobs:
-            l_logp, blob = likelihood_logp(q_new)
+            l_logp, blob_new = likelihood_logp(q_new)
         else:
             l_logp = likelihood_logp(q_new)
         new_tempered_logp = prior_logp(q_new) + l_logp * beta
@@ -168,9 +169,16 @@ def _metrop_kernel(
         if accept:
             accepted += 1
             old_tempered_logp = new_tempered_logp
+            if has_blobs:
+                blob_old = blob_new
+                new_blob = True
 
     if beta == 1 and has_blobs:
-        return q_old, accepted, blob
+        # blobs are not kept from previous calls of likelihood_logp
+        # instead we re-compute them if needed
+        if not new_blob:
+            _, blob_old = likelihood_logp(q_old)
+        return q_old, accepted, blob_old
     else:
         return q_old, accepted
 

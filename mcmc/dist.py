@@ -137,12 +137,8 @@ def cdf_from_samples(samples, nb=100, a=np.inf, b=-np.inf):
     n = len(samples)
     x = np.sort(samples)
     y = np.arange(1, n+1) / n
-    smin = x[0]
-    smax = x[-1]
-    if a < smin:
-        smin = a
-    if b > smax:
-        smax = b
+    smin = min(a, x[0])
+    smax = max(b, x[-1])
     _x = np.linspace(smin, smax, nb)
     _y = np.interp(_x, x, y)
     cdf = _x, _y
@@ -192,7 +188,7 @@ def uniform_pdf(a, b, nb=100):
     xy[1] /= np.trapz(xy[1], x=xy[0])
     return xy
 
-def logp_from_pdf(pdf, x):
+def logp_from_pdf(pdf, x, nonullp=True):
     '''
     Compute the log-probability given a Probability Distribution Function
     (PDF).
@@ -211,7 +207,10 @@ def logp_from_pdf(pdf, x):
     '''
 
     _x, y = pdf
-    # probability is not 0 outside the range of values
-    p_outside = y.max() / 100
+    if nonullp:
+        # probability is not 0 outside the range of values
+        p_outside = y.max() / 100
+    else:
+        p_outside = 0
     logp = np.log(np.interp(x, _x, y, p_outside, p_outside))
     return logp
