@@ -37,10 +37,10 @@ def smc(prior_pdf, likelihood_logp, prior_logp, draws=5000, step=None, cores=1, 
     marginal_likelihood = 1
     prior_cdf = [cdf_from_pdf(pdf) for pdf in prior_pdf]
     posterior = np.array(list(zip(*[sample_from_cdf(cdf, draws) for cdf in prior_cdf])))
-    try:
-        logp, blob = likelihood_logp(posterior[0])
+    logp = likelihood_logp(posterior[0])
+    if (type(logp) is list) or (type(logp) is tuple):
         has_blobs = True
-    except TypeError:
+    else:
         has_blobs = False
     
     while beta < 1:
@@ -84,10 +84,11 @@ def smc(prior_pdf, likelihood_logp, prior_logp, draws=5000, step=None, cores=1, 
         )
         
         if dask_client:
-            dask_posterior = dask_client.scatter(list(posterior), broadcast=True)
-            dask_tempered_logp = dask_client.scatter(list(tempered_logp), broadcast=True)
-            dask_parameters = dask_client.scatter(parameters, broadcast=True)
-            futures = dask_client.map(_metrop_kernel, dask_posterior, dask_tempered_logp, *[[param] * draws for param in dask_parameters], pure=False)
+            #dask_posterior = dask_client.scatter(list(posterior), broadcast=True)
+            #dask_tempered_logp = dask_client.scatter(list(tempered_logp), broadcast=True)
+            #dask_parameters = dask_client.scatter(parameters, broadcast=True)
+            #futures = dask_client.map(_metrop_kernel, dask_posterior, dask_tempered_logp, *[[param] * draws for param in dask_parameters], pure=False)
+            futures = dask_client.map(_metrop_kernel, posterior, tempered_logp, *[[param] * draws for param in parameters], pure=False)
             results = dask_client.gather(futures)
         elif cores > 1:
             pool = mp.Pool(processes=cores)
