@@ -45,10 +45,21 @@ def smc(prior_pdf, likelihood_logp, prior_logp, draws=5000, step=None, cores=1, 
     
     while beta < 1:
         # compute plausibility weights (measure fitness)
-        if has_blobs:
-            likelihoods = np.array([likelihood_logp(sample)[0] for sample in posterior])
+        if dask_client:
+            dask_posterior = dask_client.scatter(list(posterior), broadcast=True)
+            futures = dask_client.map(likelihood_logp, dask_posterior)
+            results = dask_client.gather(futures)
+        elif cores > 1:
+            pool = mp.Pool(processes=cores)
+            results = pool.starmap(
+                likelihood_logp,
+                [(sample,) for sample in posterior]
+            )
         else:
-            likelihoods = np.array([likelihood_logp(sample) for sample in posterior])
+            results = [likelihood_logp(sample) for sample in posterior]
+        if has_blobs:
+            results = [res[0] for res in results]
+        likelihoods = np.array(results)
         beta, old_beta, weights, sj = _calc_beta(beta, likelihoods, step.threshold)
         marginal_likelihood *= sj
         # resample based on plausibility weights (selection)
@@ -84,11 +95,10 @@ def smc(prior_pdf, likelihood_logp, prior_logp, draws=5000, step=None, cores=1, 
         )
         
         if dask_client:
-            #dask_posterior = dask_client.scatter(list(posterior), broadcast=True)
-            #dask_tempered_logp = dask_client.scatter(list(tempered_logp), broadcast=True)
-            #dask_parameters = dask_client.scatter(parameters, broadcast=True)
-            #futures = dask_client.map(_metrop_kernel, dask_posterior, dask_tempered_logp, *[[param] * draws for param in dask_parameters], pure=False)
-            futures = dask_client.map(_metrop_kernel, posterior, tempered_logp, *[[param] * draws for param in parameters], pure=False)
+            dask_posterior = dask_client.scatter(list(posterior), broadcast=True)
+            dask_tempered_logp = dask_client.scatter(list(tempered_logp), broadcast=True)
+            dask_parameters = dask_client.scatter(parameters, broadcast=True)
+            futures = dask_client.map(_metrop_kernel, dask_posterior, dask_tempered_logp, *[[param] * draws for param in dask_parameters], pure=False)
             results = dask_client.gather(futures)
         elif cores > 1:
             pool = mp.Pool(processes=cores)

@@ -61,7 +61,9 @@ def pdf_from_cdf(cdf):
     '''
 
     x, y = cdf
-    pdf = x, np.diff(y, prepend=0)
+    pdf = np.empty_like(cdf)
+    pdf[0] = x
+    pdf[1] = np.diff(y, prepend=0)
     return pdf
 
 def pdf_from_samples(samples, nb=100, kde=False, a=np.inf, b=-np.inf):
@@ -104,11 +106,11 @@ def pdf_from_samples(samples, nb=100, kde=False, a=np.inf, b=-np.inf):
         xy = np.empty((2, nb))
         xy[0] = np.linspace(smin, smax, nb)
         xy[1] = stats.gaussian_kde(samples)(xy[0])
-        xy[1] /= np.trapz(xy[1], x=xy[0])
         return xy
     else:
         cdf = cdf_from_samples(samples, nb=nb, a=a, b=b)
         pdf = pdf_from_cdf(cdf)
+        pdf[1] /= np.trapz(pdf[1], x=pdf[0])
         return pdf
 
 def cdf_from_samples(samples, nb=100, a=np.inf, b=-np.inf):
@@ -141,7 +143,9 @@ def cdf_from_samples(samples, nb=100, a=np.inf, b=-np.inf):
     smax = max(b, x[-1])
     _x = np.linspace(smin, smax, nb)
     _y = np.interp(_x, x, y)
-    cdf = _x, _y
+    cdf = np.empty((2, nb))
+    cdf[0] = _x
+    cdf[1] = _y
     return cdf
 
 def cdf_from_pdf(pdf):
@@ -162,7 +166,9 @@ def cdf_from_pdf(pdf):
 
     x, y = pdf
     p = np.cumsum(y)
-    cdf = x, p / p.max()
+    cdf = np.empty_like(pdf)
+    cdf[0] = x
+    cdf[1] = p / p.max()
     return cdf
 
 def uniform_pdf(a, b, nb=100):
@@ -184,11 +190,11 @@ def uniform_pdf(a, b, nb=100):
 
     xy = np.empty((2, nb))
     xy[0] = np.linspace(a, b, nb)
-    xy[1, :] = 1
+    xy[1] = 1
     xy[1] /= np.trapz(xy[1], x=xy[0])
     return xy
 
-def logp_from_pdf(pdf, x, nonullp=True):
+def logp_from_pdf(pdf, x, outside_max_factor=0.01):
     '''
     Compute the log-probability given a Probability Distribution Function
     (PDF).
@@ -199,6 +205,10 @@ def logp_from_pdf(pdf, x, nonullp=True):
         The PDF.
     x: float or numpy array
         The point(s) where to compute the log-probability.
+    outside_max_factor: float
+        The probability outside the range of values in the PDF is equal to the
+        maximum probability multiplied by this factor (it can be good to have
+        non-null probability).
 
     Returns
     -------
@@ -207,10 +217,6 @@ def logp_from_pdf(pdf, x, nonullp=True):
     '''
 
     _x, y = pdf
-    if nonullp:
-        # probability is not 0 outside the range of values
-        p_outside = y.max() / 100
-    else:
-        p_outside = 0
+    p_outside = y.max() * outside_max_factor
     logp = np.log(np.interp(x, _x, y, p_outside, p_outside))
     return logp
